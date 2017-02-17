@@ -11,6 +11,8 @@ class PackageTrans extends Module {
    val data_in        = Input(UInt(8.W))
    val data_val       = Input(Bool())
    val package_val    = Input(Bool())
+   val assem_crc_begin = Input(Bool())
+   val disassem_crc_begin = Input(Bool())
    val pdu            = Output(UInt(16.W))
    val device_address = Output(UInt(8.W))
    val preamble       = Output(UInt(8.W))
@@ -24,6 +26,9 @@ class PackageTrans extends Module {
 
   disassembler.io.package_in := assembler.io.out
   disassembler.io.package_val:= io.package_val
+
+  assembler.io.crc_begin := io.assem_crc_begin
+  disassembler.io.crc_begin := io.disassem_crc_begin
 
   io.pdu            := disassembler.io.pdu
   io.device_address := disassembler.io.device_address

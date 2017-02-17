@@ -14,7 +14,9 @@ class AssemblerTests(c: Assembler) extends PeekPokeTester(c) {
    val pdu_1 = data_in(23,16)
    val device_address = data_in(15,8)
    val preamble = data_in(7,0)
- 
+   val crc   = "h5dc3eb".U(24.W)
+   val package_out = "h5dc3eb08060402".U(56.W)
+
    poke(c.io.data_in, pdu_0)
    poke(c.io.data_val, data_val)
    step(1)
@@ -30,8 +32,10 @@ class AssemblerTests(c: Assembler) extends PeekPokeTester(c) {
    poke(c.io.data_in, preamble)
    poke(c.io.data_val, data_val)
    step(1)
-   expect(c.io.written, true.B)
-   expect(c.io.out,data_in)
+   poke(c.io.data_val, false.B)
+   poke(c.io.crc_begin, true.B)
+   step(50)
+   expect(c.io.out, package_out)
   
    step(1)
 

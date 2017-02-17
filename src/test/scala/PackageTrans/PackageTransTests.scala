@@ -32,13 +32,15 @@ class PackageTransTests(c: PackageTrans) extends PeekPokeTester(c) {
    poke(c.io.data_val, true.B)
    step(1)
 
-   poke(c.io.data_in, 0.U(8.W))
+   poke(c.io.assem_crc_begin, true.B)
    poke(c.io.data_val, false.B)
+   step(30)
 
    poke(c.io.package_val, true.B)
    step(1)
+   poke(c.io.disassem_crc_begin, true.B)
    poke(c.io.package_val, false.B)
-   step(1)
+   step(30)
    expect(c.io.pdu, pdu)
    expect(c.io.device_address, device_address)
    expect(c.io.preamble, preamble)   
