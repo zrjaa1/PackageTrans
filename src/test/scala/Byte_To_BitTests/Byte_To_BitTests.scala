@@ -1,6 +1,6 @@
-package util.test
+package utils.test
 
-import util._
+import utils._
 import chisel3._
 import chisel3.util._
 import chisel3.iotesters.{PeekPokeTester, Driver, ChiselFlatSpec}
