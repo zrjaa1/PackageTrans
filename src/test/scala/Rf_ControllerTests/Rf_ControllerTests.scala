@@ -1,3 +1,4 @@
+/**
 package rfcontroller.test
 
 import rfcontroller._
@@ -40,4 +41,4 @@ class Rf_ControllerTester extends ChiselFlatSpec {
   }
 }
 
- 
+ */

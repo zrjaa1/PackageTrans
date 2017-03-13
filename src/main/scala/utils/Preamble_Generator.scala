@@ -5,12 +5,8 @@ import chisel3.util._
 
 class Preamble_Generator extends Module {
     val io = IO(new Bundle {
-        val access_address_in = Input(UInt(24.W))
-        val preamble_out      = Output(UInt(8.W))
-        val operand_rdy       = Output(Bool())
-        val operand_val       = Input(Bool())
-        val result_rdy        = Input(Bool())
-        val result_val        = Output(Bool())
+        val operand = new DecoupledIO(UInt(1.W)).flip()
+        val result  = new DecoupledIO(UInt(8.W))
     } )
 
     val IDLE               = "b00".U(2.W)
@@ -23,13 +19,13 @@ class Preamble_Generator extends Module {
 
     next_state := MuxCase(state,
         Array(
-            (io.operand_val === true.B) -> OPERATE,
-            (state === OPERATE)         -> DONE,
-            (io.result_rdy)             -> IDLE
+            (state === IDLE && io.operand.valid === true.B) -> OPERATE,
+            (state === OPERATE)                             -> DONE,
+            (io.result.ready)                                 -> IDLE
         )
     )
 
-    io.operand_rdy := MuxLookup(state, false.B,
+    io.operand.ready := MuxLookup(state, false.B,
         Array (
             IDLE    -> true.B,
             OPERATE -> false.B,
@@ -37,7 +33,7 @@ class Preamble_Generator extends Module {
         )
     )
 
-    io.result_val := MuxLookup(state, false.B,
+    io.result.valid := MuxLookup(state, false.B,
         Array (
             IDLE    -> false.B,
             OPERATE -> false.B,
@@ -45,10 +41,12 @@ class Preamble_Generator extends Module {
         )
     )
 
-    when (io.access_address_in % 2.U === 0.U) {
-        io.preamble_out := "b10101010".U
+    when (state === IDLE) {
+        io.result.bits := "b00000000".U
+    } .elsewhen (io.operand.bits % 2.U === 0.U) {
+        io.result.bits := "b10101010".U
     } .otherwise {
-        io.preamble_out := "b01010101".U
+        io.result.bits := "b01010101".U
     }
     
 }

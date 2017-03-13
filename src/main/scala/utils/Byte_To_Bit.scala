@@ -5,12 +5,8 @@ import chisel3.util._
 
 class Byte_To_Bit extends Module {
 	val io = IO(new Bundle {
-		val byte_in           = Input(UInt(8.W))
-		val bit_out           = Output(UInt(1.W))
-		val operand_rdy       = Output(Bool())
-		val operand_val       = Input(Bool())
-		val result_rdy        = Input(Bool())
-		val result_val        = Output(Bool())
+		val operand = new DecoupledIO(UInt(8.W)).flip()    // byte in
+        val result  = new DecoupledIO(UInt(1.W))           // bit out
 	})
 
     val IDLE               = "b00".U(2.W)
@@ -25,8 +21,8 @@ class Byte_To_Bit extends Module {
 
     next_state := MuxCase(state,
     	Array(
-    		(io.operand_val === true.B) -> LOAD,
-    		(io.result_rdy  === true.B) -> OPERATE,
+    		(io.operand.valid === true.B) -> LOAD,
+    		(io.result.ready  === true.B) -> OPERATE,
     		(counter === 7.U)     -> IDLE
     	)
     )
@@ -40,17 +36,17 @@ class Byte_To_Bit extends Module {
     byte_reg   := MuxLookup(state, byte_reg,
     	Array (
     		IDLE    -> 0.U,
-    		LOAD    -> io.byte_in
+    		LOAD    -> io.operand.bits
     	)
     )
 
-    io.bit_out := MuxLookup(state, 0.U,
+    io.result.bits := MuxLookup(state, 0.U,
     	Array(
     		OPERATE -> byte_reg(counter)
     	)
     )
 
-    io.operand_rdy := MuxLookup(state, false.B,
+    io.operand.ready := MuxLookup(state, false.B,
     	Array (
     		IDLE    -> true.B,
     		LOAD    -> false.B,
@@ -58,7 +54,7 @@ class Byte_To_Bit extends Module {
     	)
     )
 
-    io.result_val := MuxLookup(state, false.B,
+    io.result.valid := MuxLookup(state, false.B,
     	Array (
     		IDLE    -> false.B,
     		LOAD    -> false.B,

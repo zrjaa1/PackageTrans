@@ -1,6 +1,5 @@
 package utils.test
 
-
 import utils._
 import chisel3._
 import chisel3.util._
@@ -9,23 +8,23 @@ import chisel3.iotesters.{PeekPokeTester, Driver, ChiselFlatSpec}
 
 class Preamble_GeneratorTests(c: Preamble_Generator) extends PeekPokeTester(c) {
 
-   poke(c.io.operand_val,true.B)
-   poke(c.io.access_address_in,"h00".U)
+   poke(c.io.operand.valid,true.B)
+   poke(c.io.operand.bits,"b1".U)
    step(1)
 
-   poke(c.io.operand_val,false.B)
+   poke(c.io.operand.valid,false.B)
    step(1)
-   expect(c.io.result_val, true.B)
+   expect(c.io.result.valid, true.B)
 
    step(5)
 
-   poke(c.io.result_rdy,true.B)                                   // once the rdy goes high at the falling edge of clock, the val will go low at the next pos edge of clock.
-   expect(c.io.preamble_out, "haa".U)
-   expect(c.io.result_val, true.B)
+   poke(c.io.result.ready,true.B)                                   // once the rdy goes high at the falling edge of clock, the val will go low at the next pos edge of clock.
+   expect(c.io.result.bits, "h55".U)
+   expect(c.io.result.valid, true.B)
 
    step(1)
-   poke(c.io.result_rdy,false.B)
-   expect(c.io.result_val, false.B)
+   poke(c.io.result.ready,false.B)
+   expect(c.io.result.valid, false.B)
    step(2)
 }
 

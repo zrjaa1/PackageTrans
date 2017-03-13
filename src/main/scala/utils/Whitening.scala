@@ -7,20 +7,18 @@ import chisel3.util._
 
 class Whitening (input_length: Int = 8, output_length: Int = 8)extends Module { 
   val io = IO(new Bundle {
-    val data_in      = Input(UInt(input_length.W))
-    val data_out     = Output(UInt(output_length.W))  // the maxium length of pdu is 257*8 bits
+    val operand      = new DecoupledIO(UInt(8.W)).flip()  // input 1 byte each time
+    val result       = new DecoupledIO(UInt(1.W))         // output 1 bit each time
+
     val seed         = Input(UInt(7.W))               // the module load the seed when init signal is set
-    val init         = Input(Bool())      // FSM of RF Controller give this signal, then it load the seeds
-    val operand_val  = Input(Bool())      // interface with FIFO, load 8 byte from FIFO each time.
-    val operand_rdy  = Output(Bool())     
-    val result_rdy   = Input(Bool())
-    val result_val   = Output(Bool())
+    val init         = Input(Bool())                  // FSM of RF Controller give this signal, then it load the seeds
+    val end          = Input(Bool())                  // FSM of RF Controller give this signal, then it go to the IDLE state
   } )
     
     val IDLE               = "b00".U(2.W)
     val LOAD_SEED          = "b01".U(2.W)
     val OPERATE            = "b10".U(2.W)
-    val DONE               = "b11".U(2.W)
+    val WAIT_NEXT          = "b11".U(2.W)
 
     
     val next_state = Wire(0.U(2.W))
@@ -29,13 +27,15 @@ class Whitening (input_length: Int = 8, output_length: Int = 8)extends Module {
     val counter = Reg(init = 0.U(log2Up(input_length).W))
 
     val c = Module(new Whitening_bit)
+    c.io.state := state
+    io.result.bits := c.io.bit_out
 
     next_state := MuxCase(state,
       Array(
-        (io.init === true.B)                       -> LOAD_SEED,
-        (io.operand_val === true.B)                -> OPERATE,
-        (counter === (input_length-1).asUInt())    -> DONE,
-        (io.result_rdy === true.B)                 -> IDLE
+        (io.init === true.B)                                                                       -> LOAD_SEED,
+        ((state === LOAD_SEED || state === WAIT_NEXT) && io.operand.valid === true.B)              -> OPERATE,
+        (counter === (input_length-1).asUInt())                                                    -> WAIT_NEXT,
+        (io.end  === true.B)                                                                       -> IDLE
       )
     )
 
@@ -45,15 +45,18 @@ class Whitening (input_length: Int = 8, output_length: Int = 8)extends Module {
         )
       )
 
-    io.operand_rdy := MuxLookup(state, false.B,
+    io.operand.ready := MuxLookup(state, false.B,
       Array(
-        IDLE -> true.B
+        IDLE      -> true.B,
+        LOAD_SEED -> true.B,
+        WAIT_NEXT -> true.B
       )
     )
 
-    io.result_val := MuxLookup(state, false.B,
+    io.result.valid := MuxLookup(state, false.B,
       Array(
-        DONE -> true.B)
+        OPERATE   -> true.B
+      )
     )
 
     counter := MuxLookup(state, counter,
@@ -61,34 +64,30 @@ class Whitening (input_length: Int = 8, output_length: Int = 8)extends Module {
         IDLE -> 0.U,
         LOAD_SEED -> 0.U,
         OPERATE -> (counter + 1.U),
-        DONE -> 0.U
+        WAIT_NEXT -> 0.U
       )
     )
 
      c.io.bit_in := MuxLookup(state, 0.U,
       Array(
-        OPERATE -> io.data_in(counter)
+        OPERATE -> io.operand.bits(counter)
         )
       )
-
-     c.io.state := state
-
+     
      when (state === OPERATE) {
       reg_data_out := Cat(c.io.bit_out, reg_data_out(output_length-1,1))
      }
-
-     io.data_out := reg_data_out
 }
 
 class Whitening_bit extends Module {
-    val io = IO(new Bundle {
-    val bit_in = Input(UInt(1.W))
-    val seed   = Input(UInt(7.W))
-    val state  = Input(UInt(2.W))        // 00: IDLE, 01: LOAD_SEED, 10: OPERATE, 11: DONE
+    val io      = IO(new Bundle {
+    val bit_in  = Input(UInt(1.W))
+    val seed    = Input(UInt(7.W))
+    val state   = Input(UInt(2.W))        // 00: IDLE, 01: LOAD_SEED, 10: OPERATE, 11: WAIT_NEXT
     val bit_out = Output(UInt(1.W))
   })
     val crc_reg = Reg(init = 0.U(7.W))
-    val inv = crc_reg(6)
+    val inv     = crc_reg(6)
 
     when (io.state === 1.U) {
       crc_reg := io.seed
